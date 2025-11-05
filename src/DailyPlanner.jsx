@@ -222,17 +222,25 @@ export default function DailyPlanner() {
 
       {/* Timeline grid */}
       <div className="grid grid-cols-[80px_1fr] rounded-2xl overflow-hidden border shadow-sm">
-        {/* Time column */}
-        <div className="bg-gray-50 border-r">
-          {SLOT_TIMES.map((t) => (
-            <div
-              key={t}
-              className="h-12 px-2 flex items-center justify-end text-xs text-gray-500"
-            >
-              {t}
-            </div>
-          ))}
-        </div>
+        {/* Timeline column (12-hour time) */}
+<div className="bg-gray-50 border-r">
+  {SLOT_TIMES.map((t) => {
+    // Convert 24h -> 12h
+    let [h, m] = t.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    const label = `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
+    return (
+      <div
+        key={t}
+        className="h-12 px-2 flex items-center justify-end text-xs text-gray-500"
+        title={t}
+      >
+        {label}
+      </div>
+    );
+  })}
+</div>
 
         {/* Slots */}
         <div>
