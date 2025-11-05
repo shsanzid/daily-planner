@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 /*
-  Daily Planner – 30-minute slots + priorities + sidebar list
+  Daily Planner – 30-minute slots + priorities + sidebar list + stats
   - 12h AM/PM display
   - Dhaka live clock
   - Sidebar shows today’s tasks (click to jump)
+  - Bottom statistics (total scheduled, free time, by priority, task durations)
   - LocalStorage per-day persistence
 */
 
 // ---------- Constants & helpers ----------
 const DEFAULT_TZ = "Asia/Dhaka";
+const DAY_MIN = 24 * 60;
 
 function makeId() {
   return Math.random().toString(36).slice(2, 10);
@@ -23,7 +25,7 @@ const PRIORITY_META = {
     dot: "bg-red-500",
   },
   high: {
-    label: "Important", // label shows as 'Important'
+    label: "Important", // shown as Important
     badge: "bg-orange-100 text-orange-700 border-orange-200",
     dot: "bg-orange-500",
   },
@@ -52,6 +54,12 @@ function dateKey(d) {
 function toMinutes(t) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
+}
+
+function minutesToHHMM(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
 function clampTimeToSlots(t) {
@@ -155,6 +163,52 @@ export default function DailyPlanner() {
       }),
     [data.tasks]
   );
+
+  // ---- Statistics (de-overlapped minutes using 30-min slots) ----
+  const stats = useMemo(() => {
+    // set of slot indexes (0..47) that are covered by any task -> 30min each
+    const covered = new Set();
+    data.tasks.forEach((task) => {
+      const s = toMinutes(task.start);
+      const e = toMinutes(task.end);
+      for (let m = s; m < e; m += 30) {
+        const idx = Math.floor(m / 30);
+        if (idx >= 0 && idx < 48) covered.add(idx);
+      }
+    });
+    const scheduledMin = covered.size * 30;
+    const freeMin = Math.max(0, DAY_MIN - scheduledMin);
+
+    // per-priority coverage (also de-overlapped within that priority)
+    const byPriority = {};
+    PRIORITIES.forEach((p) => {
+      const set = new Set();
+      data.tasks
+        .filter((t) => t.priority === p)
+        .forEach((task) => {
+          const s = toMinutes(task.start);
+          const e = toMinutes(task.end);
+          for (let m = s; m < e; m += 30) {
+            const idx = Math.floor(m / 30);
+            if (idx >= 0 && idx < 48) set.add(idx);
+          }
+        });
+      byPriority[p] = set.size * 30;
+    });
+
+    // per-task duration (simple end - start)
+    const perTask = data.tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      color: t.color,
+      start: t.start,
+      end: t.end,
+      minutes: Math.max(0, toMinutes(t.end) - toMinutes(t.start)),
+    }));
+
+    return { scheduledMin, freeMin, byPriority, perTask };
+  }, [data.tasks]);
 
   // Actions
   function addNote({ time, title, priority }) {
@@ -473,6 +527,114 @@ export default function DailyPlanner() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* ---------- Statistics (bottom) ---------- */}
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        {/* Totals card */}
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <h4 className="text-sm font-semibold mb-3">Totals (Today)</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Scheduled</span>
+              <span className="font-medium">{minutesToHHMM(stats.scheduledMin)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Free time</span>
+              <span className="font-medium">{minutesToHHMM(stats.freeMin)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Tasks</span>
+              <span className="font-medium">{data.tasks.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Notes</span>
+              <span className="font-medium">{data.notes.length}</span>
+            </div>
+          </div>
+          {/* Overall utilization bar */}
+          <div className="mt-3">
+            <div className="mb-1 text-xs text-gray-500">
+              Utilization ({Math.round((stats.scheduledMin / DAY_MIN) * 100)}%)
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full bg-indigo-500"
+                style={{ width: `${(stats.scheduledMin / DAY_MIN) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* By priority card */}
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <h4 className="text-sm font-semibold mb-3">By Priority</h4>
+          <div className="space-y-3">
+            {PRIORITIES.map((p) => {
+              const mins = stats.byPriority[p] || 0;
+              const pct = mins ? Math.min(100, Math.round((mins / DAY_MIN) * 100)) : 0;
+              return (
+                <div key={p}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="inline-flex items-center gap-1">
+                      <span className={`h-2 w-2 rounded-full ${PRIORITY_META[p].dot}`} />
+                      {PRIORITY_META[p].label}
+                    </span>
+                    <span className="text-gray-600">{minutesToHHMM(mins)}</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className="h-full"
+                      style={{
+                        width: `${pct}%`,
+                        background:
+                          p === "urgent"
+                            ? "#ef4444"
+                            : p === "high"
+                            ? "#f59e0b"
+                            : p === "normal"
+                            ? "#10b981"
+                            : "#94a3b8",
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Task durations card */}
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <h4 className="text-sm font-semibold mb-3">Task Durations</h4>
+          {stats.perTask.length === 0 ? (
+            <p className="text-xs text-gray-500">No tasks yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {stats.perTask
+                .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
+                .map((t) => (
+                  <li key={t.id} className="flex items-center justify-between gap-2">
+                    <button
+                      className="text-left hover:underline text-sm"
+                      onClick={() => scrollToSlot(t.start)}
+                      title={`${to12hLabel(t.start)}–${to12hLabel(t.end)}`}
+                    >
+                      <span
+                        className={`mr-2 inline-block text-[11px] px-1.5 py-0.5 rounded border ${PRIORITY_META[t.priority].badge}`}
+                      >
+                        {PRIORITY_META[t.priority].label}
+                      </span>
+                      {t.title}
+                    </button>
+                    <span className="text-xs text-gray-600">
+                      {minutesToHHMM(t.minutes)}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
         </div>
       </div>
 
