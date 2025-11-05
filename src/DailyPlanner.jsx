@@ -271,3 +271,241 @@ export default function DailyPlanner() {
                       <div
                         key={task.id}
                         className="flex flex-wrap items-center gap-2"
+                      >
+                        <span className="inline-flex items-center gap-2 rounded px-2 py-0.5 text-xs font-medium border bg-white/80 backdrop-blur">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 border ${PRIORITY_META[task.priority].badge}`}
+                          >
+                            {PRIORITY_META[task.priority].label}
+                          </span>
+                          {task.title}{" "}
+                          <span className="text-gray-500">
+                            ({task.start}–{task.end})
+                          </span>
+                        </span>
+                        <button
+                          className="text-xs text-red-600 hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTask(task.id);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : null
+                  )}
+
+                  {/* Notes */}
+                  {notesAtTime.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-2 rounded px-2 py-0.5 text-xs font-medium border bg-white/90">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 border ${PRIORITY_META[n.priority].badge}`}
+                        >
+                          {PRIORITY_META[n.priority].label}
+                        </span>
+                        {n.title}
+                      </span>
+                      <button
+                        className="text-xs text-red-600 hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeNote(n.id);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Inline add note */}
+                  {inlineEdit?.time === t && (
+                    <div className="mt-1 flex flex-col sm:flex-row gap-2 items-start">
+                      <input
+                        autoFocus
+                        placeholder="Note title"
+                        className="w-full sm:w-48 rounded border px-2 py-1 text-xs"
+                        value={inlineEdit.title}
+                        onChange={(e) =>
+                          setInlineEdit((s) => ({
+                            ...s,
+                            title: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            if (!inlineEdit.title.trim()) return;
+                            addNote({
+                              time: t,
+                              title: inlineEdit.title.trim(),
+                              priority: inlineEdit.priority,
+                            });
+                            setInlineEdit(null);
+                          }
+                          if (e.key === "Escape") setInlineEdit(null);
+                        }}
+                      />
+                      <select
+                        className="rounded border px-2 py-1 text-xs"
+                        value={inlineEdit.priority}
+                        onChange={(e) =>
+                          setInlineEdit((s) => ({
+                            ...s,
+                            priority: e.target.value,
+                          }))
+                        }
+                      >
+                        {PRIORITIES.map((p) => (
+                          <option key={p} value={p}>
+                            {PRIORITY_META[p].label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="rounded px-3 py-1 text-xs border bg-white hover:bg-gray-50"
+                        onClick={() => {
+                          if (!inlineEdit.title.trim()) return;
+                          addNote({
+                            time: t,
+                            title: inlineEdit.title.trim(),
+                            priority: inlineEdit.priority,
+                          });
+                          setInlineEdit(null);
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button
+                        className="text-xs text-gray-500 hover:underline"
+                        onClick={() => setInlineEdit(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add Task Modal */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Add Task</h2>
+              <button
+                className="text-sm text-gray-500 hover:underline"
+                onClick={() => setShowModal(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-600">Title</label>
+                <input
+                  className="rounded border px-3 py-2 text-sm w-full"
+                  value={taskDraft.title}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({ ...s, title: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Priority</label>
+                <select
+                  className="rounded border px-3 py-2 text-sm w-full"
+                  value={taskDraft.priority}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({ ...s, priority: e.target.value }))
+                  }
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {PRIORITY_META[p].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Start</label>
+                <input
+                  type="time"
+                  step="1800"
+                  className="rounded border px-3 py-2 text-sm w-full"
+                  value={taskDraft.start}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({ ...s, start: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">End</label>
+                <input
+                  type="time"
+                  step="1800"
+                  className="rounded border px-3 py-2 text-sm w-full"
+                  value={taskDraft.end}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({ ...s, end: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-600">Description</label>
+                <textarea
+                  rows={3}
+                  className="rounded border px-3 py-2 text-sm w-full"
+                  value={taskDraft.description}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({
+                      ...s,
+                      description: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-600">Color</label>
+                <input
+                  type="color"
+                  className="h-10 w-16 rounded"
+                  value={taskDraft.color}
+                  onChange={(e) =>
+                    setTaskDraft((s) => ({ ...s, color: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="rounded-2xl px-4 py-2 text-sm border"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-2xl px-4 py-2 text-sm border bg-gray-900 text-white"
+                onClick={addTask}
+              >
+                Add Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
