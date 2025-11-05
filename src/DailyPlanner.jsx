@@ -175,9 +175,22 @@ export default function DailyPlanner() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Daily Planner</h1>
-          <span className="text-xs text-gray-500">30-minute slots</span>
-        </div>
+  <h1 className="text-2xl font-semibold">Daily Planner</h1>
+
+  {/* ✅ Add this clock below */}
+  <p className="text-xs text-gray-600">
+    Dhaka Time:{" "}
+    {new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Dhaka",
+    }).format(new Date())}
+  </p>
+
+  <span className="text-xs text-gray-500">30-minute slots</span>
+</div>
+
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Priority filter */}
